@@ -2,7 +2,6 @@
 
 namespace Result;
 
-[AsyncMethodBuilder(typeof(AsyncResultMethodBuilder<>))]
 public readonly struct AsyncResult<TValue>
 {
     private readonly Task<Result<TValue>> _asyncResult;
@@ -63,57 +62,4 @@ public readonly struct AsyncResult<TValue>
     {
         return _asyncResult.GetAwaiter();
     }
-}
-
-public struct AsyncResultMethodBuilder<TResult>
-{
-    private AsyncResult<TResult> m_task;
-    private AsyncTaskMethodBuilder<TResult> _taskBuilder = AsyncTaskMethodBuilder<TResult>.Create();
-
-    public AsyncResultMethodBuilder()
-    {
-        m_task = default;
-    }
-
-    public static AsyncResultMethodBuilder<TResult> Create()
-    {
-        return default;
-    }
-    
-    public void Start<TStateMachine>(ref TStateMachine stateMachine) where TStateMachine : IAsyncStateMachine
-    {
-        _taskBuilder.Start(ref stateMachine);
-    }
-
-    public void SetStateMachine(IAsyncStateMachine stateMachine)
-    {
-        _taskBuilder.SetStateMachine(stateMachine);
-    }
-
-    public void SetResult(TResult result)
-    {
-        _taskBuilder.SetResult(result);
-    }
-    public void SetException(Exception exception)
-    {
-        _taskBuilder.SetException(exception);
-    }
-
-    public void AwaitOnCompleted<TAwaiter, TStateMachine>(
-        ref TAwaiter awaiter, ref TStateMachine stateMachine)
-        where TAwaiter : INotifyCompletion
-        where TStateMachine : IAsyncStateMachine
-    {
-        _taskBuilder.AwaitOnCompleted(ref awaiter, ref stateMachine);
-    }
-
-    public void AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(
-        ref TAwaiter awaiter, ref TStateMachine stateMachine)
-        where TAwaiter : ICriticalNotifyCompletion
-        where TStateMachine : IAsyncStateMachine
-    {
-        _taskBuilder.AwaitUnsafeOnCompleted(ref awaiter, ref stateMachine);
-    }
-
-    public AsyncResult<TResult> Task => m_task;
 }
