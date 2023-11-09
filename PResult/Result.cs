@@ -1,4 +1,4 @@
-﻿namespace Result;
+﻿namespace PResult;
 
 public readonly struct Result<TValue> : IEquatable<Result<TValue>>
 {

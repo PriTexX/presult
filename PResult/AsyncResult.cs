@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Result;
+namespace PResult;
 
 public readonly struct AsyncResult<TValue>
 {

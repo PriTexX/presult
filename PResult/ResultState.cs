@@ -1,4 +1,4 @@
-﻿namespace Result;
+﻿namespace PResult;
 
 internal enum ResultState
 {

@@ -1,4 +1,4 @@
-﻿namespace Result;
+﻿namespace PResult;
 
 public class Unit
 {
