@@ -2,6 +2,11 @@
 
 public static class ResultExtensions
 {
+    public static AsyncResult<T> ToAsyncResult<T>(this Task<Result<T>> task)
+    {
+        return task;
+    }
+    
     public static AsyncResult<T> ToAsyncResult<T>(this Task<T> task)
     {
         return task.ContinueWith<Result<T>>(

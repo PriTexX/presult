@@ -11,6 +11,8 @@ public readonly struct AsyncResult<TValue>
         _asyncResult = asyncResult;
     }
 
+    public Task<Result<TValue>> AsTask => _asyncResult;
+
     public static implicit operator AsyncResult<TValue>(Task<Result<TValue>> asyncResult)
     {
         return new AsyncResult<TValue>(asyncResult);
