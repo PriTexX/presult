@@ -2,12 +2,6 @@
 
 public readonly struct Result<TValue> : IEquatable<Result<TValue>>
 {
-    private enum ResultState
-    {
-        Success,
-        Failure,
-    }
-
     private readonly ResultState _state;
     private readonly TValue _value;
     private readonly Exception _error;
@@ -27,10 +21,26 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     }
 
     public bool IsSuccess => _state == ResultState.Success;
-    public bool IsError => _state == ResultState.Failure;
+    public bool IsError => _state == ResultState.Failure;   
 
     public TRes Match<TRes>(Func<TValue, TRes> success, Func<Exception, TRes> fail) =>
         IsSuccess ? success(_value) : fail(_error);
+
+    public Task<TRes> MatchAsync<TRes>(Func<TValue, Task<TRes>> success, Func<Exception, Task<TRes>> fail) =>
+        IsSuccess ? success(_value) : fail(_error);
+    
+    public Task<TRes> MatchAsync<TRes>(Func<TValue, Task<TRes>> success, Func<Exception, TRes> fail) =>
+        IsSuccess ? success(_value) : Task.FromResult(fail(_error));
+
+    public Result<K> Then<K>(Func<TValue, Result<K>> next)
+    {
+        return Match(next, err => err);
+    }
+    
+    public AsyncResult<K> ThenAsync<K>(Func<TValue, Task<Result<K>>> next)
+    {
+        return Match(next, err => Task.FromResult<Result<K>>(err));
+    }
 
     public TValue UnsafeValue =>
         IsError ? throw new ArgumentException("Trying to access value in Failure state") : _value;
@@ -45,8 +55,8 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     public bool Equals(Result<TValue> other)
     {
         return _state == other._state
-               && EqualityComparer<TValue>.Default.Equals(_value, other._value)
-               && _error.Equals(other._error);
+            && EqualityComparer<TValue>.Default.Equals(_value, other._value)
+            && _error.Equals(other._error);
     }
 
     public override bool Equals(object? obj)
@@ -69,4 +79,3 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         return !(left == right);
     }
 }
-
