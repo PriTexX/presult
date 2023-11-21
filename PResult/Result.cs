@@ -51,6 +51,16 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         return Match(next, err => Task.FromResult<Result<K>>(err));
     }
 
+    public Result<TValue> MapErr(Func<Exception, Result<TValue>> errMap)
+    {
+        return Match(val => val, errMap);
+    }
+    
+    public AsyncResult<TValue> MapErrAsync(Func<Exception, Task<Result<TValue>>> errMapAsync)
+    {
+        return Match(val => Task.FromResult<Result<TValue>>(val), errMapAsync);
+    }
+
     public TValue UnsafeValue =>
         IsError ? throw new ArgumentException("Trying to access value in Failure state") : _value;
 
@@ -60,6 +70,11 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     public static Result<TValue> Ok(TValue value)
     {
         return new Result<TValue>(value);
+    }
+    
+    public static Result<TValue> Err(Exception err)
+    {
+        return new Result<TValue>(err);
     }
 
     public static implicit operator Result<TValue>(TValue value) => new(value);
