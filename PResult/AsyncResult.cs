@@ -72,6 +72,29 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
     }
 
+    public AsyncResult<TValue> MapErr(Func<Exception, Result<TValue>> errMap)
+    {
+        return _asyncResult.ContinueWith(finishedTask =>
+        {
+            var res = finishedTask.Result;
+            return res.MapErr(errMap);
+        });
+    }
+
+    public AsyncResult<TValue> MapErrAsync(Func<Exception, Task<Result<TValue>>> mapErrAsync)
+    {
+        return _asyncResult
+            .ContinueWith(finishedTask =>
+            {
+                var res = finishedTask.Result;
+
+                return res.IsError
+                    ? mapErrAsync(res.UnsafeError)
+                    : Task.FromResult(new Result<TValue>(res.UnsafeValue));
+            })
+            .Unwrap();
+    }
+
     public TaskAwaiter<Result<TValue>> GetAwaiter()
     {
         return _asyncResult.GetAwaiter();

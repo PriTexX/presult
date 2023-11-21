@@ -55,7 +55,7 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     {
         return Match(val => val, errMap);
     }
-    
+
     public AsyncResult<TValue> MapErrAsync(Func<Exception, Task<Result<TValue>>> errMapAsync)
     {
         return Match(val => Task.FromResult<Result<TValue>>(val), errMapAsync);
@@ -71,7 +71,7 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     {
         return new Result<TValue>(value);
     }
-    
+
     public static Result<TValue> Err(Exception err)
     {
         return new Result<TValue>(err);
