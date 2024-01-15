@@ -2,23 +2,23 @@
 
 namespace PResult;
 
-public readonly struct AsyncResult<TValue>
+public readonly struct AsyncResult<T>
 {
-    private readonly Task<Result<TValue>> _asyncResult;
+    private readonly Task<Result<T>> _asyncResult;
 
-    private AsyncResult(Task<Result<TValue>> asyncResult)
+    private AsyncResult(Task<Result<T>> asyncResult)
     {
         _asyncResult = asyncResult;
     }
 
-    public Task<Result<TValue>> AsTask() => _asyncResult;
+    public Task<Result<T>> AsTask() => _asyncResult;
 
-    public static implicit operator AsyncResult<TValue>(Task<Result<TValue>> asyncResult)
+    public static implicit operator AsyncResult<T>(Task<Result<T>> asyncResult)
     {
-        return new AsyncResult<TValue>(asyncResult);
+        return new AsyncResult<T>(asyncResult);
     }
 
-    public Task<TRes> Match<TRes>(Func<TValue, TRes> success, Func<Exception, TRes> fail) =>
+    public Task<TRes> Match<TRes>(Func<T, TRes> success, Func<Exception, TRes> fail) =>
         _asyncResult.ContinueWith(finishedTask =>
         {
             var res = finishedTask.Result;
@@ -26,7 +26,7 @@ public readonly struct AsyncResult<TValue>
         });
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, Task<TRes>> success,
+        Func<T, Task<TRes>> success,
         Func<Exception, Task<TRes>> fail
     ) =>
         _asyncResult
@@ -38,7 +38,7 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, Task<TRes>> success,
+        Func<T, Task<TRes>> success,
         Func<Exception, TRes> fail
     ) =>
         _asyncResult
@@ -50,7 +50,7 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, TRes> success,
+        Func<T, TRes> success,
         Func<Exception, Task<TRes>> fail
     ) =>
         _asyncResult
@@ -61,7 +61,7 @@ public readonly struct AsyncResult<TValue>
             })
             .Unwrap();
 
-    public AsyncResult<K> Then<K>(Func<TValue, Result<K>> next)
+    public AsyncResult<K> Then<K>(Func<T, Result<K>> next)
     {
         return _asyncResult.ContinueWith(finishedTask =>
         {
@@ -70,21 +70,36 @@ public readonly struct AsyncResult<TValue>
         });
     }
 
-    public AsyncResult<K> ThenAsync<K>(Func<TValue, Task<Result<K>>> next)
+    public AsyncResult<K> ThenAsync<K>(Func<T, Task<Result<K>>> next)
     {
         return _asyncResult
             .ContinueWith(finishedTask =>
             {
                 var res = finishedTask.Result;
-
-                return res.IsError
-                    ? Task.FromResult(new Result<K>(res.UnsafeError))
-                    : next(res.UnsafeValue);
+                return res.ThenAsync(next).AsTask();
             })
             .Unwrap();
     }
 
-    public AsyncResult<K> Map<K>(Func<TValue, K> mapper)
+    public AsyncResult<T> ThenErr(Func<Exception, Result<T>> errNext)
+    {
+        return _asyncResult.ContinueWith(finishedTask =>
+        {
+            var res = finishedTask.Result;
+            return res.ThenErr(errNext);
+        });
+    }
+    
+    public AsyncResult<T> ThenErrAsync(Func<Exception, Task<Result<T>>> errNext)
+    {
+        return _asyncResult.ContinueWith(finishedTask =>
+        {
+            var res = finishedTask.Result;
+            return res.ThenErrAsync(errNext).AsTask();
+        }).Unwrap();
+    }
+
+    public AsyncResult<K> Map<K>(Func<T, K> mapper)
     {
         return _asyncResult.ContinueWith(finishedTask =>
         {
@@ -93,7 +108,7 @@ public readonly struct AsyncResult<TValue>
         });
     }
 
-    public AsyncResult<K> MapAsync<K>(Func<TValue, Task<K>> asyncMapper)
+    public AsyncResult<K> MapAsync<K>(Func<T, Task<K>> asyncMapper)
     {
         return _asyncResult
             .ContinueWith(finishedTask =>
@@ -104,7 +119,7 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
     }
 
-    public AsyncResult<TValue> MapErr<E>(Func<Exception, E> errMap)
+    public AsyncResult<T> MapErr<E>(Func<Exception, E> errMap)
         where E : Exception
     {
         return _asyncResult.ContinueWith(finishedTask =>
@@ -114,7 +129,7 @@ public readonly struct AsyncResult<TValue>
         });
     }
 
-    public AsyncResult<TValue> MapErrAsync<E>(Func<Exception, Task<E>> mapErrAsync)
+    public AsyncResult<T> MapErrAsync<E>(Func<Exception, Task<E>> mapErrAsync)
         where E : Exception
     {
         return _asyncResult
@@ -127,7 +142,7 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
     }
 
-    public TaskAwaiter<Result<TValue>> GetAwaiter()
+    public TaskAwaiter<Result<T>> GetAwaiter()
     {
         return _asyncResult.GetAwaiter();
     }

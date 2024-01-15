@@ -1,9 +1,9 @@
 ﻿namespace PResult;
 
-public readonly struct Result<TValue> : IEquatable<Result<TValue>>
+public readonly struct Result<T> : IEquatable<Result<T>>
 {
     private readonly ResultState _state;
-    private readonly TValue _value;
+    private readonly T _value;
     private readonly Exception _error;
 
     public Result()
@@ -11,7 +11,7 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         throw new EmptyCtorInstantiationException();
     }
 
-    public Result(TValue value)
+    public Result(T value)
     {
         _state = ResultState.Success;
         _value = value;
@@ -28,40 +28,50 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     public bool IsSuccess => _state == ResultState.Success;
     public bool IsError => _state == ResultState.Failure;
 
-    public TRes Match<TRes>(Func<TValue, TRes> success, Func<Exception, TRes> fail) =>
+    public TRes Match<TRes>(Func<T, TRes> success, Func<Exception, TRes> fail) =>
         IsSuccess ? success(_value) : fail(_error);
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, Task<TRes>> success,
+        Func<T, Task<TRes>> success,
         Func<Exception, Task<TRes>> fail
     ) => IsSuccess ? success(_value) : fail(_error);
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, Task<TRes>> success,
+        Func<T, Task<TRes>> success,
         Func<Exception, TRes> fail
     ) => IsSuccess ? success(_value) : Task.FromResult(fail(_error));
 
     public Task<TRes> MatchAsync<TRes>(
-        Func<TValue, TRes> success,
+        Func<T, TRes> success,
         Func<Exception, Task<TRes>> fail
     ) => IsSuccess ? Task.FromResult(success(_value)) : fail(_error);
 
-    public Result<K> Then<K>(Func<TValue, Result<K>> next)
+    public Result<K> Then<K>(Func<T, Result<K>> next)
     {
         return Match(next, err => err);
     }
 
-    public AsyncResult<K> ThenAsync<K>(Func<TValue, Task<Result<K>>> next)
+    public AsyncResult<K> ThenAsync<K>(Func<T, Task<Result<K>>> next)
     {
         return Match(next, err => Task.FromResult<Result<K>>(err));
     }
 
-    public Result<K> Map<K>(Func<TValue, K> mapper)
+    public Result<T> ThenErr(Func<Exception, Result<T>> errNext)
+    {
+        return Match(val => val, errNext);
+    }
+
+    public AsyncResult<T> ThenErrAsync(Func<Exception, Task<Result<T>>> errNext)
+    {
+        return Match(val => Task.FromResult(Ok(val)), errNext);
+    }
+
+    public Result<K> Map<K>(Func<T, K> mapper)
     {
         return Match<Result<K>>(val => mapper(val), err => err);
     }
 
-    public AsyncResult<K> MapAsync<K>(Func<TValue, Task<K>> asyncMapper)
+    public AsyncResult<K> MapAsync<K>(Func<T, Task<K>> asyncMapper)
     {
         return Match(
             val => asyncMapper(val).ContinueWith(res => Result<K>.Ok(res.Result)),
@@ -69,40 +79,40 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         );
     }
 
-    public Result<TValue> MapErr<E>(Func<Exception, E> errMap)
+    public Result<T> MapErr<E>(Func<Exception, E> errMap)
         where E : Exception
     {
         return Match(val => val, err => Err(errMap(err)));
     }
 
-    public AsyncResult<TValue> MapErrAsync<E>(Func<Exception, Task<E>> errMapAsync)
+    public AsyncResult<T> MapErrAsync<E>(Func<Exception, Task<E>> errMapAsync)
         where E : Exception
     {
         return Match(
-            val => Task.FromResult<Result<TValue>>(val),
+            val => Task.FromResult<Result<T>>(val),
             err => errMapAsync(err).ContinueWith(res => Err(res.Result))
         );
     }
 
-    public TValue UnsafeValue =>
+    public T UnsafeValue =>
         IsError ? throw new ArgumentException("Trying to access value in Failure state") : _value;
 
     public Exception UnsafeError =>
         IsSuccess ? throw new ArgumentException("Trying to access error in Success state") : _error;
 
-    public static Result<TValue> Ok(TValue value)
+    public static Result<T> Ok(T value)
     {
-        return new Result<TValue>(value);
+        return new Result<T>(value);
     }
 
-    public static Result<TValue> Err(Exception err)
+    public static Result<T> Err(Exception err)
     {
-        return new Result<TValue>(err);
+        return new Result<T>(err);
     }
 
-    public static AsyncResult<TValue> FromTask(Task<TValue> task)
+    public static AsyncResult<T> FromTask(Task<T> task)
     {
-        return task.ContinueWith<Result<TValue>>(c =>
+        return task.ContinueWith<Result<T>>(c =>
         {
             if (c is { IsFaulted: true, Exception: not null })
             {
@@ -128,20 +138,20 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         ;
     }
 
-    public static implicit operator Result<TValue>(TValue value) => new(value);
+    public static implicit operator Result<T>(T value) => new(value);
 
-    public static implicit operator Result<TValue>(Exception error) => new(error);
+    public static implicit operator Result<T>(Exception error) => new(error);
 
-    public bool Equals(Result<TValue> other)
+    public bool Equals(Result<T> other)
     {
         return _state == other._state
-            && EqualityComparer<TValue>.Default.Equals(_value, other._value)
+            && EqualityComparer<T>.Default.Equals(_value, other._value)
             && _error.Equals(other._error);
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is Result<TValue> other && Equals(other);
+        return obj is Result<T> other && Equals(other);
     }
 
     public override int GetHashCode()
@@ -149,12 +159,12 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         return HashCode.Combine((int)_state, _value, _error);
     }
 
-    public static bool operator ==(Result<TValue> left, Result<TValue> right)
+    public static bool operator ==(Result<T> left, Result<T> right)
     {
         return left.Equals(right);
     }
 
-    public static bool operator !=(Result<TValue> left, Result<TValue> right)
+    public static bool operator !=(Result<T> left, Result<T> right)
     {
         return !(left == right);
     }
