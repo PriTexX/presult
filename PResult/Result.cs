@@ -41,6 +41,11 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         Func<Exception, TRes> fail
     ) => IsSuccess ? success(_value) : Task.FromResult(fail(_error));
 
+    public Task<TRes> MatchAsync<TRes>(
+        Func<TValue, TRes> success,
+        Func<Exception, Task<TRes>> fail
+    ) => IsSuccess ? Task.FromResult(success(_value)) : fail(_error);
+
     public Result<K> Then<K>(Func<TValue, Result<K>> next)
     {
         return Match(next, err => err);
@@ -51,14 +56,32 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
         return Match(next, err => Task.FromResult<Result<K>>(err));
     }
 
-    public Result<TValue> MapErr(Func<Exception, Result<TValue>> errMap)
+    public Result<K> Map<K>(Func<TValue, K> mapper)
     {
-        return Match(val => val, errMap);
+        return Match<Result<K>>(val => mapper(val), err => err);
     }
 
-    public AsyncResult<TValue> MapErrAsync(Func<Exception, Task<Result<TValue>>> errMapAsync)
+    public AsyncResult<K> MapAsync<K>(Func<TValue, Task<K>> asyncMapper)
     {
-        return Match(val => Task.FromResult<Result<TValue>>(val), errMapAsync);
+        return Match(
+            val => asyncMapper(val).ContinueWith(res => Result<K>.Ok(res.Result)),
+            err => Task.FromResult(Result<K>.Err(err))
+        );
+    }
+
+    public Result<TValue> MapErr<E>(Func<Exception, E> errMap)
+        where E : Exception
+    {
+        return Match(val => val, err => Err(errMap(err)));
+    }
+
+    public AsyncResult<TValue> MapErrAsync<E>(Func<Exception, Task<E>> errMapAsync)
+        where E : Exception
+    {
+        return Match(
+            val => Task.FromResult<Result<TValue>>(val),
+            err => errMapAsync(err).ContinueWith(res => Err(res.Result))
+        );
     }
 
     public TValue UnsafeValue =>
@@ -75,6 +98,34 @@ public readonly struct Result<TValue> : IEquatable<Result<TValue>>
     public static Result<TValue> Err(Exception err)
     {
         return new Result<TValue>(err);
+    }
+
+    public static AsyncResult<TValue> FromTask(Task<TValue> task)
+    {
+        return task.ContinueWith<Result<TValue>>(c =>
+        {
+            if (c is { IsFaulted: true, Exception: not null })
+            {
+                return c.Exception;
+            }
+
+            return c.Result;
+        });
+        ;
+    }
+
+    public static AsyncResult<Unit> FromTask(Task task)
+    {
+        return task.ContinueWith<Result<Unit>>(c =>
+        {
+            if (c is { IsFaulted: true, Exception: not null })
+            {
+                return c.Exception;
+            }
+
+            return Unit.Default;
+        });
+        ;
     }
 
     public static implicit operator Result<TValue>(TValue value) => new(value);

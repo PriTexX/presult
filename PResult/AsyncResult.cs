@@ -11,7 +11,7 @@ public readonly struct AsyncResult<TValue>
         _asyncResult = asyncResult;
     }
 
-    public Task<Result<TValue>> AsTask => _asyncResult;
+    public Task<Result<TValue>> AsTask() => _asyncResult;
 
     public static implicit operator AsyncResult<TValue>(Task<Result<TValue>> asyncResult)
     {
@@ -49,6 +49,18 @@ public readonly struct AsyncResult<TValue>
             })
             .Unwrap();
 
+    public Task<TRes> MatchAsync<TRes>(
+        Func<TValue, TRes> success,
+        Func<Exception, Task<TRes>> fail
+    ) =>
+        _asyncResult
+            .ContinueWith(finishedTask =>
+            {
+                var res = finishedTask.Result;
+                return res.MatchAsync(success, fail);
+            })
+            .Unwrap();
+
     public AsyncResult<K> Then<K>(Func<TValue, Result<K>> next)
     {
         return _asyncResult.ContinueWith(finishedTask =>
@@ -72,7 +84,28 @@ public readonly struct AsyncResult<TValue>
             .Unwrap();
     }
 
-    public AsyncResult<TValue> MapErr(Func<Exception, Result<TValue>> errMap)
+    public AsyncResult<K> Map<K>(Func<TValue, K> mapper)
+    {
+        return _asyncResult.ContinueWith(finishedTask =>
+        {
+            var res = finishedTask.Result;
+            return res.Map(mapper);
+        });
+    }
+
+    public AsyncResult<K> MapAsync<K>(Func<TValue, Task<K>> asyncMapper)
+    {
+        return _asyncResult
+            .ContinueWith(finishedTask =>
+            {
+                var res = finishedTask.Result;
+                return res.MapAsync(asyncMapper).AsTask();
+            })
+            .Unwrap();
+    }
+
+    public AsyncResult<TValue> MapErr<E>(Func<Exception, E> errMap)
+        where E : Exception
     {
         return _asyncResult.ContinueWith(finishedTask =>
         {
@@ -81,16 +114,15 @@ public readonly struct AsyncResult<TValue>
         });
     }
 
-    public AsyncResult<TValue> MapErrAsync(Func<Exception, Task<Result<TValue>>> mapErrAsync)
+    public AsyncResult<TValue> MapErrAsync<E>(Func<Exception, Task<E>> mapErrAsync)
+        where E : Exception
     {
         return _asyncResult
             .ContinueWith(finishedTask =>
             {
                 var res = finishedTask.Result;
 
-                return res.IsError
-                    ? mapErrAsync(res.UnsafeError)
-                    : Task.FromResult(new Result<TValue>(res.UnsafeValue));
+                return res.MapErrAsync(mapErrAsync).AsTask();
             })
             .Unwrap();
     }
