@@ -6,7 +6,12 @@ public readonly struct AsyncResult<T>
 {
     private readonly Task<Result<T>> _asyncResult;
 
-    private AsyncResult(Task<Result<T>> asyncResult)
+    public AsyncResult()
+    {
+        throw new EmptyCtorInstantiationException();
+    }
+    
+    public AsyncResult(Task<Result<T>> asyncResult)
     {
         _asyncResult = asyncResult;
     }
