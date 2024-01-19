@@ -141,7 +141,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// <inheritdoc cref="ThenErr"/>
     public AsyncResult<T> ThenErrAsync(Func<Exception, Task<Result<T>>> errNext)
     {
-        return Match(val => Task.FromResult(Ok(val)), errNext);
+        return Match(val => Task.FromResult(ResultExt.Ok(val)), errNext);
     }
 
     /// <summary>
@@ -162,8 +162,8 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     public AsyncResult<K> MapAsync<K>(Func<T, Task<K>> asyncMapper)
     {
         return Match(
-            val => asyncMapper(val).ContinueWith(res => Result<K>.Ok(res.Result)),
-            err => Task.FromResult(Result<K>.Err(err))
+            val => asyncMapper(val).ContinueWith(res => ResultExt.Ok<K>(res.Result)),
+            err => Task.FromResult(ResultExt.Err<K>(err))
         );
     }
 
@@ -174,7 +174,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// <returns><see cref="Result{T}"/> with new error returned from <b><paramref name="errMapper"/></b></returns>
     public Result<T> MapErr(Func<Exception, Exception> errMapper)
     {
-        return Match(val => val, err => Err(errMapper(err)));
+        return Match(val => val, err => ResultExt.Err<T>(errMapper(err)));
     }
 
     /// <summary>
@@ -186,7 +186,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     {
         return Match(
             val => Task.FromResult<Result<T>>(val),
-            err => asyncErrMapper(err).ContinueWith(res => Err(res.Result))
+            err => asyncErrMapper(err).ContinueWith(res => ResultExt.Err<T>(res.Result))
         );
     }
 
@@ -203,62 +203,6 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Success` state</exception>
     public Exception UnsafeError =>
         IsSuccess ? throw new InvalidResultStateException(_state) : _error;
-
-    /// <summary>
-    /// Creates <see cref="Result{T}"/> from value.
-    /// </summary>
-    /// <param name="value">Any value</param>
-    /// <returns><see cref="Result{T}"/></returns>
-    public static Result<T> Ok(T value)
-    {
-        return new Result<T>(value);
-    }
-
-    /// <summary>
-    /// Creates <see cref="Result{T}"/> from error.
-    /// </summary>
-    /// <param name="err">Any error</param>
-    /// <returns><see cref="Result{T}"/></returns>
-    public static Result<T> Err(Exception err)
-    {
-        return new Result<T>(err);
-    }
-    
-    /// <param name="task">Any task</param>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    /// <inheritdoc cref="FromTask(System.Threading.Tasks.Task)"/>
-    public static AsyncResult<T> FromTask(Task<T> task)
-    {
-        return task.ContinueWith<Result<T>>(c =>
-        {
-            if (c is { IsFaulted: true, Exception: not null })
-            {
-                return c.Exception;
-            }
-
-            return c.Result;
-        });
-        ;
-    }
-    
-    /// <summary>
-    /// Accepts <see cref="Task{T}"/> and returns <see cref="AsyncResult{T}"/> with resolved value or thrown error.
-    /// </summary>
-    /// <returns><see cref="AsyncResult{T}">AsyncResult&lt;Unit&gt;</see></returns>
-    /// <remarks>You can use this function for things like db or api calls to catch any unexpected error and map them, without using try/catch.</remarks>
-    public static AsyncResult<Unit> FromTask(Task task)
-    {
-        return task.ContinueWith<Result<Unit>>(c =>
-        {
-            if (c is { IsFaulted: true, Exception: not null })
-            {
-                return c.Exception;
-            }
-
-            return Unit.Default;
-        });
-        ;
-    }
 
     /// <summary>
     /// Implicitly converts value to <see cref="Result{T}"/>
