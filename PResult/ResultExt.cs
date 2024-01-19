@@ -53,9 +53,9 @@ public static class ResultExt
             }
 
             return Unit.Default;
-        });   
-    } 
-    
+        });
+    }
+
     /// <param name="task">Any task</param>
     /// <returns><see cref="AsyncResult{T}"/></returns>
     /// <inheritdoc cref="FromTask(System.Threading.Tasks.Task)"/>
@@ -90,7 +90,7 @@ public static class ResultExt
             return err;
         }
     }
-    
+
     /// <summary>
     /// Accepts <see cref="Func{T}">Func</see> and returns <see cref="Result{T}"/> with returned value or thrown error.
     /// </summary>

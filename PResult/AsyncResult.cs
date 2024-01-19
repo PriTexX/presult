@@ -10,7 +10,7 @@ namespace PResult;
 public readonly struct AsyncResult<T>
 {
     private readonly Task<Result<T>> _asyncResult;
-    
+
     /// <summary>
     /// <b>!!! Never user this parameterless constructor as it throws an error !!!</b>
     /// </summary>
@@ -19,7 +19,7 @@ public readonly struct AsyncResult<T>
     {
         throw new EmptyCtorInstantiationException();
     }
-    
+
     /// <summary>
     /// Async variant of <see cref="Result{T}"/>
     /// </summary>
@@ -80,10 +80,7 @@ public readonly struct AsyncResult<T>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> success,
-        Func<Exception, TRes> fail
-    ) =>
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> success, Func<Exception, TRes> fail) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
@@ -96,10 +93,7 @@ public readonly struct AsyncResult<T>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, TRes> success,
-        Func<Exception, Task<TRes>> fail
-    ) =>
+    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> success, Func<Exception, Task<TRes>> fail) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
@@ -157,7 +151,7 @@ public readonly struct AsyncResult<T>
             return res.ThenErr(errNext);
         });
     }
-    
+
     /// <summary>
     /// Async version of <see cref="ThenErr">ThenErr</see>.
     /// </summary>
@@ -168,11 +162,13 @@ public readonly struct AsyncResult<T>
     /// <inheritdoc cref="ThenErr"/>
     public AsyncResult<T> ThenErrAsync(Func<Exception, Task<Result<T>>> errNext)
     {
-        return _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.ThenErrAsync(errNext).AsTask();
-        }).Unwrap();
+        return _asyncResult
+            .ContinueWith(finishedTask =>
+            {
+                var res = finishedTask.Result;
+                return res.ThenErrAsync(errNext).AsTask();
+            })
+            .Unwrap();
     }
 
     /// <summary>

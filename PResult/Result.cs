@@ -51,7 +51,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// Returns true if <see cref="Result{T}"/> is in success state.
     /// </summary>
     public bool IsSuccess => _state == ResultState.Success;
-    
+
     /// <summary>
     /// Returns true if <see cref="Result{T}"/> is in error state.
     /// </summary>
@@ -81,19 +81,15 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> success,
-        Func<Exception, TRes> fail
-    ) => IsSuccess ? success(_value) : Task.FromResult(fail(_error));
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> success, Func<Exception, TRes> fail) =>
+        IsSuccess ? success(_value) : Task.FromResult(fail(_error));
 
     /// <summary>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, TRes> success,
-        Func<Exception, Task<TRes>> fail
-    ) => IsSuccess ? Task.FromResult(success(_value)) : fail(_error);
+    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> success, Func<Exception, Task<TRes>> fail) =>
+        IsSuccess ? Task.FromResult(success(_value)) : fail(_error);
 
     /// <summary>
     /// Calls <b><paramref name="next"/></b> if result is in success state, otherwise returns error value.
@@ -194,8 +190,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// You can access result value by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access value directly make sure it is safe by checking properties <see cref="IsSuccess"/> or <see cref="IsError"/>.
     /// </summary>
     /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Error` state</exception>
-    public T UnsafeValue =>
-        IsError ? throw new InvalidResultStateException(_state) : _value;
+    public T UnsafeValue => IsError ? throw new InvalidResultStateException(_state) : _value;
 
     /// <summary>
     /// You can access result error by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access error directly make sure it is safe by checking properties <see cref="IsSuccess"/> or <see cref="IsError"/>.
@@ -223,7 +218,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
             && EqualityComparer<T>.Default.Equals(_value, other._value)
             && _error.Equals(other._error);
     }
-    
+
     /// <inheritdoc cref="Equals(PResult.Result{T})"/>
     public override bool Equals(object? obj)
     {
