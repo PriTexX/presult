@@ -2,6 +2,6 @@
 
 internal enum ResultState
 {
-    Success,
-    Failure,
+    Ok,
+    Err,
 }

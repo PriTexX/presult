@@ -46,18 +46,18 @@ public readonly struct AsyncResult<T>
     }
 
     /// <summary>
-    /// Calls <b><paramref name="success"/></b> if <see cref="AsyncResult{T}"/> is in success state, otherwise calls <b><paramref name="fail"/></b>.
+    /// Calls <b><paramref name="ok"/></b> if <see cref="AsyncResult{T}"/> is in `Ok` state, otherwise calls <b><paramref name="err"/></b>.
     /// </summary>
-    /// <param name="success">Func that will be called on success state</param>
-    /// <param name="fail">Func that will be called on error state</param>
+    /// <param name="ok">Func that will be called on `Ok` state</param>
+    /// <param name="err">Func that will be called on `Err` state</param>
     /// <typeparam name="TRes">Return type</typeparam>
     /// <returns>Task with result of one of provided functions</returns>
-    /// <remarks><b><paramref name="success"/></b> and <b><paramref name="fail"/></b> must have the same return type</remarks>
-    public Task<TRes> Match<TRes>(Func<T, TRes> success, Func<Exception, TRes> fail) =>
+    /// <remarks><b><paramref name="ok"/></b> and <b><paramref name="err"/></b> must have the same return type</remarks>
+    public Task<TRes> Match<TRes>(Func<T, TRes> ok, Func<Exception, TRes> err) =>
         _asyncResult.ContinueWith(finishedTask =>
         {
             var res = finishedTask.Result;
-            return res.Match(success, fail);
+            return res.Match(ok, err);
         });
 
     /// <summary>
@@ -65,14 +65,14 @@ public readonly struct AsyncResult<T>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
     public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> success,
-        Func<Exception, Task<TRes>> fail
+        Func<T, Task<TRes>> ok,
+        Func<Exception, Task<TRes>> err
     ) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
                 var res = finishedTask.Result;
-                return res.MatchAsync(success, fail);
+                return res.MatchAsync(ok, err);
             })
             .Unwrap();
 
@@ -80,12 +80,12 @@ public readonly struct AsyncResult<T>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> success, Func<Exception, TRes> fail) =>
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, TRes> err) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
                 var res = finishedTask.Result;
-                return res.MatchAsync(success, fail);
+                return res.MatchAsync(ok, err);
             })
             .Unwrap();
 
@@ -93,17 +93,17 @@ public readonly struct AsyncResult<T>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> success, Func<Exception, Task<TRes>> fail) =>
+    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> ok, Func<Exception, Task<TRes>> err) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
                 var res = finishedTask.Result;
-                return res.MatchAsync(success, fail);
+                return res.MatchAsync(ok, err);
             })
             .Unwrap();
 
     /// <summary>
-    /// Calls <b><paramref name="next"/></b> if result is in success state, otherwise returns error value.
+    /// Calls <b><paramref name="next"/></b> if result is in `Ok` state, otherwise returns error value.
     /// </summary>
     /// <param name="next">Func that will be called with result value</param>
     /// <typeparam name="K">New type that can be returned from next function</typeparam>
@@ -138,7 +138,7 @@ public readonly struct AsyncResult<T>
     }
 
     /// <summary>
-    /// Calls <b><paramref name="errNext"/></b> if result is in error state, otherwise returns success value.
+    /// Calls <b><paramref name="errNext"/></b> if result is in `Err` state, otherwise returns success value.
     /// </summary>
     /// <param name="errNext">Func that will be called with result error</param>
     /// <remarks>You can use this method to control flow based on result values</remarks>

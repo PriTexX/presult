@@ -10,11 +10,11 @@ internal sealed class InvalidResultStateException : Exception
 
     private static string GetValueWord(ResultState state)
     {
-        return state == ResultState.Success ? "value" : "error";
+        return state == ResultState.Ok ? "value" : "error";
     }
 
     private static string GetStateName(ResultState state)
     {
-        return state == ResultState.Success ? "`Success`" : "`Error`";
+        return state == ResultState.Ok ? "`Ok`" : "`Err`";
     }
 }

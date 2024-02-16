@@ -29,7 +29,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// <param name="value">Any value</param>
     public Result(T value)
     {
-        _state = ResultState.Success;
+        _state = ResultState.Ok;
         _value = value;
         _error = default!;
     }
@@ -37,62 +37,62 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// <summary>
     /// Error variant of <see cref="Result{T}"/>.
     /// </summary>
-    /// <param name="error">Any error that occured in method.</param>
-    /// <remarks><b><paramref name="error"/></b> must be <see cref="Exception"/></remarks>
-    /// <exception cref="ArgumentNullException">Passed <b><paramref name="error"/></b> is null</exception>
-    public Result(Exception error)
+    /// <param name="err">Any error that occured in method.</param>
+    /// <remarks><b><paramref name="err"/></b> must be <see cref="Exception"/></remarks>
+    /// <exception cref="ArgumentNullException">Passed <b><paramref name="err"/></b> is null</exception>
+    public Result(Exception err)
     {
-        _state = ResultState.Failure;
+        _state = ResultState.Err;
         _value = default!;
-        _error = error ?? throw new ArgumentNullException(nameof(error));
+        _error = err ?? throw new ArgumentNullException(nameof(err));
     }
 
     /// <summary>
-    /// Returns true if <see cref="Result{T}"/> is in success state.
+    /// Returns true if <see cref="Result{T}"/> is in `Ok` state.
     /// </summary>
-    public bool IsSuccess => _state == ResultState.Success;
+    public bool IsOk => _state == ResultState.Ok;
 
     /// <summary>
-    /// Returns true if <see cref="Result{T}"/> is in error state.
+    /// Returns true if <see cref="Result{T}"/> is in `Err` state.
     /// </summary>
-    public bool IsError => _state == ResultState.Failure;
+    public bool IsErr => _state == ResultState.Err;
 
     /// <summary>
-    /// Calls <b><paramref name="success"/></b> if <see cref="Result{T}"/> is in success state, otherwise calls <b><paramref name="fail"/></b>.
+    /// Calls <b><paramref name="ok"/></b> if <see cref="Result{T}"/> is in `Ok` state, otherwise calls <b><paramref name="err"/></b>.
     /// </summary>
-    /// <param name="success">Func that will be called on success state</param>
-    /// <param name="fail">Func that will be called on error state</param>
+    /// <param name="ok">Func that will be called on `Ok` state</param>
+    /// <param name="err">Func that will be called on `Err` state</param>
     /// <typeparam name="TRes">Return type</typeparam>
     /// <returns>Result of one of provided functions</returns>
-    /// <remarks><b><paramref name="success"/></b> and <b><paramref name="fail"/></b> must have the same return type</remarks>
-    public TRes Match<TRes>(Func<T, TRes> success, Func<Exception, TRes> fail) =>
-        IsSuccess ? success(_value) : fail(_error);
+    /// <remarks><b><paramref name="ok"/></b> and <b><paramref name="err"/></b> must have the same return type</remarks>
+    public TRes Match<TRes>(Func<T, TRes> ok, Func<Exception, TRes> err) =>
+        IsOk ? ok(_value) : err(_error);
 
     /// <summary>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
     public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> success,
-        Func<Exception, Task<TRes>> fail
-    ) => IsSuccess ? success(_value) : fail(_error);
+        Func<T, Task<TRes>> ok,
+        Func<Exception, Task<TRes>> err
+    ) => IsOk ? ok(_value) : err(_error);
 
     /// <summary>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> success, Func<Exception, TRes> fail) =>
-        IsSuccess ? success(_value) : Task.FromResult(fail(_error));
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, TRes> err) =>
+        IsOk ? ok(_value) : Task.FromResult(err(_error));
 
     /// <summary>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> success, Func<Exception, Task<TRes>> fail) =>
-        IsSuccess ? Task.FromResult(success(_value)) : fail(_error);
+    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> ok, Func<Exception, Task<TRes>> err) =>
+        IsOk ? Task.FromResult(ok(_value)) : err(_error);
 
     /// <summary>
-    /// Calls <b><paramref name="next"/></b> if result is in success state, otherwise returns error value.
+    /// Calls <b><paramref name="next"/></b> if result is in `Ok` state, otherwise returns error value.
     /// </summary>
     /// <param name="next">Func that will be called with result value</param>
     /// <typeparam name="K">New type that can be returned from next function</typeparam>
@@ -117,7 +117,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     }
 
     /// <summary>
-    /// Calls <b><paramref name="errNext"/></b> if result is in error state, otherwise returns success value.
+    /// Calls <b><paramref name="errNext"/></b> if result is in `Err` state, otherwise returns success value.
     /// </summary>
     /// <param name="errNext">Func that will be called with result error</param>
     /// <remarks>You can use this method to control flow based on result values</remarks>
@@ -187,17 +187,17 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     }
 
     /// <summary>
-    /// You can access result value by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access value directly make sure it is safe by checking properties <see cref="IsSuccess"/> or <see cref="IsError"/>.
+    /// You can access result value by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access value directly make sure it is safe by checking properties <see cref="IsOk"/> or <see cref="IsErr"/>.
     /// </summary>
-    /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Error` state</exception>
-    public T UnsafeValue => IsError ? throw new InvalidResultStateException(_state) : _value;
+    /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Err` state</exception>
+    public T UnsafeValue => IsErr ? throw new InvalidResultStateException(_state) : _value;
 
     /// <summary>
-    /// You can access result error by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access error directly make sure it is safe by checking properties <see cref="IsSuccess"/> or <see cref="IsError"/>.
+    /// You can access result error by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access error directly make sure it is safe by checking properties <see cref="IsOk"/> or <see cref="IsErr"/>.
     /// </summary>
-    /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Success` state</exception>
+    /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Ok` state</exception>
     public Exception UnsafeError =>
-        IsSuccess ? throw new InvalidResultStateException(_state) : _error;
+        IsOk ? throw new InvalidResultStateException(_state) : _error;
 
     /// <summary>
     /// Implicitly converts value to <see cref="Result{T}"/>
@@ -205,9 +205,9 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     public static implicit operator Result<T>(T value) => new(value);
 
     /// <summary>
-    /// Implicitly converts error to <see cref="Result{T}"/>
+    /// Implicitly converts <see cref="Exception"/> to <see cref="Result{T}"/>
     /// </summary>
-    public static implicit operator Result<T>(Exception error) => new(error);
+    public static implicit operator Result<T>(Exception err) => new(err);
 
     /// <summary>
     /// Checks whether two results are equal

@@ -29,13 +29,36 @@ public static class ResultExt
     }
 
     /// <summary>
+    /// Creates <see cref="AsyncResult{T}"/> from value.
+    /// </summary>
+    /// <param name="val">Any value</param>
+    /// <typeparam name="T">Any type</typeparam>
+    /// <returns><see cref="AsyncResult{T}"/></returns>
+    public static AsyncResult<T> OkAsync<T>(T val)
+    {
+        return Task.FromResult(Ok(val));
+    }
+
+    /// <summary>
     /// Creates <see cref="Result{T}"/> from error.
     /// </summary>
     /// <param name="err">Any error</param>
+    /// <typeparam name="T">Any type</typeparam>
     /// <returns><see cref="Result{T}"/></returns>
     public static Result<T> Err<T>(Exception err)
     {
         return new Result<T>(err);
+    }
+
+    /// <summary>
+    /// Creates <see cref="AsyncResult{T}"/> from error.
+    /// </summary>
+    /// <param name="err">Any error</param>
+    /// <typeparam name="T">Any type</typeparam>
+    /// <returns><see cref="AsyncResult{T}"/></returns>
+    public static AsyncResult<T> ErrAsync<T>(Exception err)
+    {
+        return Task.FromResult(Err<T>(err));
     }
 
     /// <summary>
