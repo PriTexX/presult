@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Title>Implementation of Result pattern</Title>
+        <Authors>PriTexX</Authors>
+        <PackageLicenseUrl>https://github.com/PriTexX/presult/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/PriTexX/presult</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>result;error handling;presult;Result;exception</PackageTags>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
