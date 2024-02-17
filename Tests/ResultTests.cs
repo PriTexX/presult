@@ -68,7 +68,7 @@ public class ResultTests
         okRes.Match(_ => 1, _ => 0).Should().Be(1);
         errRes.Match(_ => 1, _ => 0).Should().Be(0);
     }
-    
+
     [Fact]
     public void MatchAsyncWorksCorrect()
     {

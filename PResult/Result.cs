@@ -72,10 +72,8 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> ok,
-        Func<Exception, Task<TRes>> err
-    ) => IsOk ? ok(_value) : err(_error);
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, Task<TRes>> err) =>
+        IsOk ? ok(_value) : err(_error);
 
     /// <summary>
     /// Async version of <see cref="Match{TRes}">Match</see>
@@ -196,8 +194,7 @@ public readonly struct Result<T> : IEquatable<Result<T>>
     /// You can access result error by this property, try to use <see cref="Match{TRes}">Match</see> whenever it's possible. But if you need to access error directly make sure it is safe by checking properties <see cref="IsOk"/> or <see cref="IsErr"/>.
     /// </summary>
     /// <exception cref="InvalidResultStateException">If result you are trying to access is in `Ok` state</exception>
-    public Exception UnsafeError =>
-        IsOk ? throw new InvalidResultStateException(_state) : _error;
+    public Exception UnsafeError => IsOk ? throw new InvalidResultStateException(_state) : _error;
 
     /// <summary>
     /// Implicitly converts value to <see cref="Result{T}"/>

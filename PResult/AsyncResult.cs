@@ -64,10 +64,7 @@ public readonly struct AsyncResult<T>
     /// Async version of <see cref="Match{TRes}">Match</see>
     /// </summary>
     /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(
-        Func<T, Task<TRes>> ok,
-        Func<Exception, Task<TRes>> err
-    ) =>
+    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, Task<TRes>> err) =>
         _asyncResult
             .ContinueWith(finishedTask =>
             {
