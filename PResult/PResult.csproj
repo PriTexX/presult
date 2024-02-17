@@ -10,6 +10,7 @@
         <RepositoryUrl>https://github.com/PriTexX/presult</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>result;error handling;presult;Result;exception</PackageTags>
+        <Description>Provides a nice way of handling application errors with `Result` pattern</Description>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
