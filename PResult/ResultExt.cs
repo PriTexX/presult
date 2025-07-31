@@ -1,111 +1,43 @@
-﻿namespace PResult;
+namespace PResult;
 
-/// <summary>
-/// Extensions of <see cref="Result{T}"/>
-/// </summary>
-public static class ResultExt
+public static class Result
 {
-    /// <summary>
-    /// Makes <see cref="AsyncResult{T}"/> from <b>Task&lt;Result&lt;T&gt;&gt;</b>.
-    /// </summary>
-    /// <param name="task">Task with result</param>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    /// <remarks>Use this if method returns <b>Task&lt;Result&lt;T&gt;&gt;</b> but you want additionally modify result before awaiting it.</remarks>
-    public static AsyncResult<T> ToAsyncResult<T>(this Task<Result<T>> task)
+    /// <summary>Creates a success result</summary>
+    public static Result<T, TError> Ok<T, TError>(T value) => new(value);
+
+    /// <summary>Creates an error result</summary>
+    public static Result<T, TError> Err<T, TError>(TError error) => new(error);
+
+    /// <summary>Creates an async success result</summary>
+    public static AsyncResult<T, TError> OkAsync<T, TError>(T value) =>
+        Task.FromResult(Ok<T, TError>(value));
+
+    /// <summary>Creates an async error result</summary>
+    public static AsyncResult<T, TError> ErrAsync<T, TError>(TError error) =>
+        Task.FromResult(Err<T, TError>(error));
+
+    /// <summary>Safely run a Task, capturing exceptions as <see cref="Exception"/> errors.</summary>
+    public static AsyncResult<Unit, Exception> FromTask(Task task)
     {
-        return new AsyncResult<T>(task);
+        return task.ContinueWith<Result<Unit, Exception>>(r =>
+            r is { IsFaulted: true, Exception: not null } ? r.Exception : Unit.Default
+        );
     }
 
-    /// <summary>
-    /// Creates <see cref="Result{T}"/> from value.
-    /// </summary>
-    /// <param name="val">Any value</param>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="Result{T}"/></returns>
-    public static Result<T> Ok<T>(T val)
+    /// <summary>Safely run a Task&lt;T&gt;, capturing exceptions as <see cref="Exception"/> errors.</summary>
+    public static AsyncResult<T, Exception> FromTask<T>(Task<T> task)
     {
-        return new Result<T>(val);
+        return task.ContinueWith<Result<T, Exception>>(r =>
+            r is { IsFaulted: true, Exception: not null } ? r.Exception : r.Result
+        );
     }
 
-    /// <summary>
-    /// Creates <see cref="AsyncResult{T}"/> from value.
-    /// </summary>
-    /// <param name="val">Any value</param>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    public static AsyncResult<T> OkAsync<T>(T val)
-    {
-        return Task.FromResult(Ok(val));
-    }
-
-    /// <summary>
-    /// Creates <see cref="Result{T}"/> from error.
-    /// </summary>
-    /// <param name="err">Any error</param>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="Result{T}"/></returns>
-    public static Result<T> Err<T>(Exception err)
-    {
-        return new Result<T>(err);
-    }
-
-    /// <summary>
-    /// Creates <see cref="AsyncResult{T}"/> from error.
-    /// </summary>
-    /// <param name="err">Any error</param>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    public static AsyncResult<T> ErrAsync<T>(Exception err)
-    {
-        return Task.FromResult(Err<T>(err));
-    }
-
-    /// <summary>
-    /// Accepts <see cref="Task{T}"/> and returns <see cref="AsyncResult{T}"/> with resolved value or thrown error.
-    /// </summary>
-    /// <returns><see cref="AsyncResult{T}">AsyncResult&lt;Unit&gt;</see></returns>
-    /// <remarks>You can use this function for things like db or api calls to catch any unexpected error and map them, without using try/catch.</remarks>
-    public static AsyncResult<Unit> FromTask(Task task)
-    {
-        return task.ContinueWith<Result<Unit>>(c =>
-        {
-            if (c is { IsFaulted: true, Exception: not null })
-            {
-                return c.Exception;
-            }
-
-            return Unit.Default;
-        });
-    }
-
-    /// <param name="task">Any task</param>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    /// <inheritdoc cref="FromTask(System.Threading.Tasks.Task)"/>
-    public static AsyncResult<T> FromTask<T>(Task<T> task)
-    {
-        return task.ContinueWith<Result<T>>(c =>
-        {
-            if (c is { IsFaulted: true, Exception: not null })
-            {
-                return c.Exception;
-            }
-
-            return c.Result;
-        });
-    }
-
-    /// <summary>
-    /// Accepts <see cref="Action">Action</see> and returns <see cref="Result{T}"/> with returned value or thrown error.
-    /// </summary>
-    /// <param name="func">Delegate that may throw <see cref="Exception"/></param>
-    /// <returns><see cref="Result{T}">Result&lt;Unit&gt;</see></returns>
-    /// <remarks>You can use this function for delegates that may throw an error, to avoid try/catch.</remarks>
-    public static Result<Unit> FromThrowable(Action func)
+    /// <summary>Execute an action, returning success or capturing any exception as an error.</summary>
+    public static Result<Unit, Exception> FromThrowable(Action fn)
     {
         try
         {
-            func.Invoke();
+            fn();
             return Unit.Default;
         }
         catch (Exception err)
@@ -114,16 +46,12 @@ public static class ResultExt
         }
     }
 
-    /// <summary>
-    /// Accepts <see cref="Func{T}">Func</see> and returns <see cref="Result{T}"/> with returned value or thrown error.
-    /// </summary>
-    /// <typeparam name="T">Any type</typeparam>
-    /// <returns><see cref="Result{T}"/></returns>
-    public static Result<T> FromThrowable<T>(Func<T> func)
+    /// <summary>Execute a function, returning its value or capturing any exception as an error.</summary>
+    public static Result<T, Exception> FromThrowable<T>(Func<T> fn)
     {
         try
         {
-            return func.Invoke();
+            return fn();
         }
         catch (Exception err)
         {

@@ -1,20 +1,17 @@
 ﻿namespace PResult;
 
 /// <summary>
-/// Thrown when you access `Unsafe` methods of <see cref="Result{T}"/>.
+/// Thrown when you access `Unsafe` methods of <see cref="Result{T, TError}"/>.
 /// </summary>
-internal sealed class InvalidResultStateException : Exception
+public sealed class InvalidResultStateException : Exception
 {
-    public InvalidResultStateException(ResultState state)
-        : base($"Cannot access result {GetValueWord(state)} in {GetStateName(state)} state") { }
+    private const string OkState = "Ok";
 
-    private static string GetValueWord(ResultState state)
-    {
-        return state == ResultState.Ok ? "value" : "error";
-    }
+    public InvalidResultStateException(string state)
+        : base($"Cannot access result {GetValueWord(state)} in `{state}` state") { }
 
-    private static string GetStateName(ResultState state)
+    private static string GetValueWord(string state)
     {
-        return state == ResultState.Ok ? "`Ok`" : "`Err`";
+        return state == OkState ? "value" : "error";
     }
 }

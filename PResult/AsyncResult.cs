@@ -2,239 +2,75 @@
 
 namespace PResult;
 
-/// <summary>
-/// Similar to <see cref="Result{T}"/> but asynchronous and awaitable. Also all methods return <see cref="AsyncResult{T}"/> instead of common <see cref="Result{T}"/>
-/// </summary>
-/// <remarks>You cannot directly return <see cref="AsyncResult{T}"/> from async methods, instead you have to return <b>Task&lt;Result&lt;T&gt;&gt;</b></remarks>
-/// <typeparam name="T">Any type</typeparam>
-public readonly struct AsyncResult<T>
+public readonly struct AsyncResult<T, TError>
 {
-    private readonly Task<Result<T>> _asyncResult;
+    private readonly Task<Result<T, TError>> _task;
+
+    private AsyncResult(Task<Result<T, TError>> task) => _task = task;
+
+    /// <summary>Handles success or error branch.</summary>
+    public Task<TRes> Match<TRes>(Func<T, TRes> ok, Func<TError, TRes> err) =>
+        _task.Continue(res => res.Match(ok, err));
+
+    /// <summary>Runs provided computation on success.</summary>
+    public AsyncResult<K, TError> Then<K>(Func<T, Result<K, TError>> next) =>
+        Match(next, err => err);
+
+    /// <summary>Asynchronously runs provided computation on success.</summary>
+    public AsyncResult<K, TError> ThenAsync<K>(Func<T, AsyncResult<K, TError>> next) =>
+        _task.Continue(res => res.ThenAsync(next).AsTask()).Unwrap();
+
+    /// <summary>Asynchronously runs provided computation on success.</summary>
+    public AsyncResult<K, TError> ThenAsync<K>(Func<T, Task<Result<K, TError>>> next) =>
+        _task.Continue(res => res.ThenAsync(next).AsTask()).Unwrap();
+
+    /// <summary>Runs provided computation on error.</summary>
+    public AsyncResult<T, TError> ThenErr(Func<TError, Result<T, TError>> errNext) =>
+        Match(val => val, errNext);
+
+    /// <summary>Asynchronously runs provided computation on error.</summary>
+    public AsyncResult<T, TError> ThenErrAsync(Func<TError, AsyncResult<T, TError>> errNext) =>
+        _task.Continue(res => res.ThenErrAsync(errNext).AsTask()).Unwrap();
+
+    /// <summary>Asynchronously runs provided computation on error.</summary>
+    public AsyncResult<T, TError> ThenErrAsync(Func<TError, Task<Result<T, TError>>> errNext) =>
+        _task.Continue(res => res.ThenErrAsync(errNext).AsTask()).Unwrap();
+
+    /// <summary>Transforms success value.</summary>
+    public AsyncResult<K, TError> Map<K>(Func<T, K> mapper) =>
+        Match(val => mapper(val), Result.Err<K, TError>);
+
+    /// <summary>Asynchronously transforms success value.</summary>
+    public AsyncResult<K, TError> MapAsync<K>(Func<T, Task<K>> mapper) =>
+        _task.Continue(res => res.MapAsync(mapper).AsTask()).Unwrap();
+
+    /// <summary>Transforms error.</summary>
+    public AsyncResult<T, KError> MapErr<KError>(Func<TError, KError> errMapper) =>
+        Match(Result.Ok<T, KError>, err => errMapper(err));
+
+    /// <summary>Asynchronously transforms error.</summary>
+    public AsyncResult<T, KError> MapErrAsync<KError>(Func<TError, Task<KError>> errMapper) =>
+        _task.Continue(res => res.MapErrAsync(errMapper).AsTask()).Unwrap();
+
+    /// <summary>Returns success or fallback value.</summary>
+    public Task<T> ValueOr(T fallback) => _task.Continue(res => res.ValueOr(fallback));
+
+    /// <summary>Gets success or throws.</summary>
+    public Task<T> UnsafeValue => _task.Continue(res => res.UnsafeValue);
+
+    /// <summary>Gets error or throws.</summary>
+    public Task<TError> UnsafeError => _task.Continue(res => res.UnsafeError);
+
+    public Task<Result<T, TError>> AsTask() => _task;
+
+    public static implicit operator AsyncResult<T, TError>(Task<Result<T, TError>> task) =>
+        new(task);
+
+    public static implicit operator AsyncResult<T, TError>(Result<T, TError> result) =>
+        new(Task.FromResult(result));
 
     /// <summary>
-    /// <b>!!! Never user this parameterless constructor as it throws an error !!!</b>
+    /// Magic method that allows to `await` AsyncResult.
     /// </summary>
-    /// <exception cref="EmptyCtorInstantiationException">Always thrown</exception>
-    public AsyncResult()
-    {
-        throw new EmptyCtorInstantiationException();
-    }
-
-    /// <summary>
-    /// Async variant of <see cref="Result{T}"/>
-    /// </summary>
-    /// <param name="asyncResult">Task with <see cref="Result{T}"/></param>
-    public AsyncResult(Task<Result<T>> asyncResult)
-    {
-        _asyncResult = asyncResult;
-    }
-
-    /// <summary>
-    /// Gives you access to internal task
-    /// </summary>
-    /// <returns>Task with <see cref="Result{T}"/></returns>
-    public Task<Result<T>> AsTask() => _asyncResult;
-
-    /// <summary>
-    /// Implicitly converts task with result to <see cref="AsyncResult{T}"/>.
-    /// </summary>
-    /// <param name="asyncResult">Task with <see cref="Result{T}"/></param>
-    /// <returns><see cref="AsyncResult{T}"/></returns>
-    public static implicit operator AsyncResult<T>(Task<Result<T>> asyncResult)
-    {
-        return new AsyncResult<T>(asyncResult);
-    }
-
-    /// <summary>
-    /// Calls <b><paramref name="ok"/></b> if <see cref="AsyncResult{T}"/> is in `Ok` state, otherwise calls <b><paramref name="err"/></b>.
-    /// </summary>
-    /// <param name="ok">Func that will be called on `Ok` state</param>
-    /// <param name="err">Func that will be called on `Err` state</param>
-    /// <typeparam name="TRes">Return type</typeparam>
-    /// <returns>Task with result of one of provided functions</returns>
-    /// <remarks><b><paramref name="ok"/></b> and <b><paramref name="err"/></b> must have the same return type</remarks>
-    public Task<TRes> Match<TRes>(Func<T, TRes> ok, Func<Exception, TRes> err) =>
-        _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.Match(ok, err);
-        });
-
-    /// <summary>
-    /// Async version of <see cref="Match{TRes}">Match</see>
-    /// </summary>
-    /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, Task<TRes>> err) =>
-        _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.MatchAsync(ok, err);
-            })
-            .Unwrap();
-
-    /// <summary>
-    /// Async version of <see cref="Match{TRes}">Match</see>
-    /// </summary>
-    /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, Task<TRes>> ok, Func<Exception, TRes> err) =>
-        _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.MatchAsync(ok, err);
-            })
-            .Unwrap();
-
-    /// <summary>
-    /// Async version of <see cref="Match{TRes}">Match</see>
-    /// </summary>
-    /// <inheritdoc cref="Match{TRes}"/>
-    public Task<TRes> MatchAsync<TRes>(Func<T, TRes> ok, Func<Exception, Task<TRes>> err) =>
-        _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.MatchAsync(ok, err);
-            })
-            .Unwrap();
-
-    /// <summary>
-    /// Calls <b><paramref name="next"/></b> if result is in `Ok` state, otherwise returns error value.
-    /// </summary>
-    /// <param name="next">Func that will be called with result value</param>
-    /// <typeparam name="K">New type that can be returned from next function</typeparam>
-    /// <remarks>You can use this method to control flow based on result values</remarks>
-    /// <returns>New result that is produced from <b><paramref name="next"/></b> function</returns>
-    public AsyncResult<K> Then<K>(Func<T, Result<K>> next)
-    {
-        return _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.Then(next);
-        });
-    }
-
-    /// <summary>
-    /// Async version of <see cref="Then{K}">Then</see>.
-    /// </summary>
-    /// <returns>
-    /// <para><see cref="AsyncResult{T}"/></para>
-    /// <inheritdoc cref="Then{K}"/>
-    /// </returns>
-    /// <inheritdoc cref="Then{K}"/>
-    public AsyncResult<K> ThenAsync<K>(Func<T, Task<Result<K>>> next)
-    {
-        return _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.ThenAsync(next).AsTask();
-            })
-            .Unwrap();
-    }
-
-    /// <summary>
-    /// Calls <b><paramref name="errNext"/></b> if result is in `Err` state, otherwise returns success value.
-    /// </summary>
-    /// <param name="errNext">Func that will be called with result error</param>
-    /// <remarks>You can use this method to control flow based on result values</remarks>
-    /// <returns>New result that is produced from <b><paramref name="errNext"/></b> function</returns>
-    public AsyncResult<T> ThenErr(Func<Exception, Result<T>> errNext)
-    {
-        return _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.ThenErr(errNext);
-        });
-    }
-
-    /// <summary>
-    /// Async version of <see cref="ThenErr">ThenErr</see>.
-    /// </summary>
-    /// <returns>
-    /// <para><see cref="AsyncResult{T}"/></para>
-    /// <inheritdoc cref="ThenErr"/>
-    /// </returns>
-    /// <inheritdoc cref="ThenErr"/>
-    public AsyncResult<T> ThenErrAsync(Func<Exception, Task<Result<T>>> errNext)
-    {
-        return _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.ThenErrAsync(errNext).AsTask();
-            })
-            .Unwrap();
-    }
-
-    /// <summary>
-    /// Maps <see cref="AsyncResult{T}"/> to <b>AsyncResult&lt;K&gt;</b> by applying a <b><paramref name="mapper"></paramref></b> to a success value, leaving error value.
-    /// </summary>
-    /// <param name="mapper">Func that maps result value to another</param>
-    /// <typeparam name="K">Any type</typeparam>
-    /// <returns><see cref="AsyncResult{T}"/> with new result value returned from <b><paramref name="mapper"/></b></returns>
-    public AsyncResult<K> Map<K>(Func<T, K> mapper)
-    {
-        return _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.Map(mapper);
-        });
-    }
-
-    /// <summary>
-    /// Async version of <see cref="Map{K}">Map</see>
-    /// </summary>
-    /// <inheritdoc cref="Map{K}"/>
-    public AsyncResult<K> MapAsync<K>(Func<T, Task<K>> asyncMapper)
-    {
-        return _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-                return res.MapAsync(asyncMapper).AsTask();
-            })
-            .Unwrap();
-    }
-
-    /// <summary>
-    /// Maps error contained in result to a new one, leaving value untouched.
-    /// </summary>
-    /// <param name="errMapper">Func that maps error to another</param>
-    /// <returns><see cref="Result{T}"/> with new error returned from <b><paramref name="errMapper"/></b></returns>
-    public AsyncResult<T> MapErr(Func<Exception, Exception> errMapper)
-    {
-        return _asyncResult.ContinueWith(finishedTask =>
-        {
-            var res = finishedTask.Result;
-            return res.MapErr(errMapper);
-        });
-    }
-
-    /// <summary>
-    /// Async version of <see cref="MapErr">MapErr</see>
-    /// </summary>
-    /// <returns><see cref="AsyncResult{T}"/> with new error returned from <b><paramref name="asyncErrMapper"/></b></returns>
-    /// <inheritdoc cref="MapErr"/>
-    public AsyncResult<T> MapErrAsync(Func<Exception, Task<Exception>> asyncErrMapper)
-    {
-        return _asyncResult
-            .ContinueWith(finishedTask =>
-            {
-                var res = finishedTask.Result;
-
-                return res.MapErrAsync(asyncErrMapper).AsTask();
-            })
-            .Unwrap();
-    }
-
-    /// <summary>
-    /// Magic method that allows `await` AsyncResult.
-    /// </summary>
-    /// <returns></returns>
-    public TaskAwaiter<Result<T>> GetAwaiter()
-    {
-        return _asyncResult.GetAwaiter();
-    }
+    public TaskAwaiter<Result<T, TError>> GetAwaiter() => _task.GetAwaiter();
 }

@@ -1,8 +1,0 @@
-site_name: PResult
-
-nav:
-  - Result.md
-  - ResultExt.md
-  - AsyncResult.md
-
-theme: readthedocs

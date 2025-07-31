@@ -6,302 +6,326 @@ namespace Tests;
 public class ResultTests
 {
     [Fact]
-    public void CreatesOkResult()
+    public void CreatesSuccessResult()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var resValue = res.UnsafeValue;
-
-        resValue.Should().Be(Unit.Default);
+        var result = Result.Ok<int, string>(1);
+        result.IsOk().Should().BeTrue();
+        result.UnsafeValue.Should().Be(1);
     }
 
     [Fact]
     public void CreatesErrorResult()
     {
-        var error = new Exception("Some error");
-        var res = new Result<Unit>(error);
-
-        var resValue = res.UnsafeError;
-
-        resValue.Message.Should().Be("Some error");
+        var result = Result.Err<int, string>("error");
+        result.IsErr().Should().BeTrue();
+        result.UnsafeError.Should().Be("error");
     }
 
     [Fact]
-    public void UnsafeValueThrowsExceptionWhenAccessedInErrState()
+    public void OkResultReportsCorrectFlags()
     {
-        var res = new Result<Unit>(new Exception());
-
-        var action = () => res.UnsafeValue;
-
-        action.Should().Throw<Exception>();
+        var ok = Result.Ok<int, string>(5);
+        ok.IsOk().Should().BeTrue();
+        ok.IsErr().Should().BeFalse();
     }
 
     [Fact]
-    public void UnsafeErrorThrowsExceptionWhenAccessedInOkState()
+    public void ErrorResultReportsCorrectFlags()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var action = () => res.UnsafeError;
-
-        action.Should().Throw<Exception>();
+        var err = Result.Err<int, string>("fail");
+        err.IsErr().Should().BeTrue();
+        err.IsOk().Should().BeFalse();
     }
 
     [Fact]
-    public void StateCheckWorksCorrect()
+    public void MatchTransformsOnSuccess()
     {
-        var okRes = new Result<Unit>(Unit.Default);
-        var errRes = new Result<Unit>(new Exception());
-
-        okRes.IsOk.Should().Be(true);
-        okRes.IsErr.Should().Be(false);
-
-        errRes.IsOk.Should().Be(false);
-        errRes.IsErr.Should().Be(true);
+        var success = Result.Ok<int, string>(2);
+        var outValue = success.Match(v => v * 2, _ => -1);
+        outValue.Should().Be(4);
     }
 
     [Fact]
-    public void MatchWorksCorrect()
+    public void MatchReturnsFallbackOnError()
     {
-        var okRes = new Result<Unit>(Unit.Default);
-        var errRes = new Result<Unit>(new Exception());
-
-        okRes.Match(_ => 1, _ => 0).Should().Be(1);
-        errRes.Match(_ => 1, _ => 0).Should().Be(0);
+        var failure = Result.Err<int, string>("bad");
+        var outValue = failure.Match(v => v * 2, _ => -1);
+        outValue.Should().Be(-1);
     }
 
     [Fact]
-    public void MatchAsyncWorksCorrect()
+    public void ThenChainsOnSuccess()
     {
-        var okRes = new Result<Unit>(Unit.Default);
-
-        var asyncVal = okRes.MatchAsync(async _ => 1, async _ => 0);
-
-        asyncVal.Should().BeOfType<Task<int>>();
+        var success = Result.Ok<int, string>(3);
+        var chained = success.Then(v => Result.Ok<string, string>((v * 2).ToString()));
+        chained.IsOk().Should().BeTrue();
+        chained.UnsafeValue.Should().Be("6");
     }
 
     [Fact]
-    public void ThenWorksCorrectInOkState()
+    public void ThenSkipsOnError()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = res.Then<bool>(_ => true);
-
-        newRes.UnsafeValue.Should().Be(true);
+        var failure = Result.Err<int, string>("oops");
+        var chained = failure.Then(v => Result.Ok<string, string>((v * 2).ToString()));
+        chained.IsErr().Should().BeTrue();
+        chained.UnsafeError.Should().Be("oops");
     }
 
     [Fact]
-    public void ThenWorksCorrectInErrState()
+    public void ThenErrHandlesError()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = res.Then<bool>(_ => true);
-
-        newRes.UnsafeError.Message.Should().Be("Some error");
+        var failure = Result.Err<int, string>("err");
+        var recovered = failure.ThenErr(_ => Result.Ok<int, string>(-1));
+        recovered.IsOk().Should().BeTrue();
+        recovered.UnsafeValue.Should().Be(-1);
     }
 
     [Fact]
-    public void ThenReturnsNewError()
+    public void ThenErrSkipsOnSuccess()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = res.Then<bool>(_ => new Exception("Some error"));
-
-        newRes.UnsafeError.Message.Should().Be("Some error");
+        var success = Result.Ok<int, string>(7);
+        var unchanged = success.ThenErr(_ => Result.Ok<int, string>(-1));
+        unchanged.IsOk().Should().BeTrue();
+        unchanged.UnsafeValue.Should().Be(7);
     }
 
     [Fact]
-    public void MapWorksCorrectInOkState()
+    public void MapTransformsOnSuccess()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = res.Map(_ => true);
-
-        newRes.UnsafeValue.Should().Be(true);
+        var success = Result.Ok<int, string>(4);
+        var mapped = success.Map(v => v + 1);
+        mapped.IsOk().Should().BeTrue();
+        mapped.UnsafeValue.Should().Be(5);
     }
 
     [Fact]
-    public void MapWorksCorrectInErrState()
+    public void MapPreservesError()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = res.Map(_ => true);
-
-        newRes.UnsafeError.Message.Should().Be("Some error");
+        var failure = Result.Err<int, string>("fail");
+        var mapped = failure.Map(v => v + 1);
+        mapped.IsErr().Should().BeTrue();
+        mapped.UnsafeError.Should().Be("fail");
     }
 
     [Fact]
-    public void MapErrWorksCorrectInErrState()
+    public void MapErrTransformsError()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = res.MapErr(_ => new Exception("Some new error"));
-
-        newRes.UnsafeError.Message.Should().Be("Some new error");
+        var failure = Result.Err<int, string>("error");
+        var mappedErr = failure.MapErr(e => e.Length);
+        mappedErr.IsErr().Should().BeTrue();
+        mappedErr.UnsafeError.Should().Be(5);
     }
 
     [Fact]
-    public void MapErrWorksCorrectInOkState()
+    public void MapErrPreservesValue()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = res.MapErr(_ => new Exception("Some new error"));
-
-        newRes.UnsafeValue.Should().Be(Unit.Default);
+        var success = Result.Ok<int, string>(10);
+        var mappedErr = success.MapErr(e => e.Length);
+        mappedErr.IsOk().Should().BeTrue();
+        mappedErr.UnsafeValue.Should().Be(10);
     }
 
     [Fact]
-    public void ThenErrWorksCorrectInErrState()
+    public void TryPickValueOnSuccess()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = res.ThenErr(_ => Unit.Default);
-
-        newRes.UnsafeValue.Should().Be(Unit.Default);
+        var success = Result.Ok<int, string>(9);
+        var ok = success.TryPickValue(out var value, out var error);
+        ok.Should().BeTrue();
+        value.Should().Be(9);
+        error.Should().BeNull();
     }
 
     [Fact]
-    public void ThenErrReturnsNewError()
+    public void TryPickValueOnError()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = res.ThenErr(_ => new Exception("Some new error"));
-
-        newRes.UnsafeError.Message.Should().Be("Some new error");
+        var failure = Result.Err<int, string>("fail");
+        var ok = failure.TryPickValue(out var value, out var error);
+        ok.Should().BeFalse();
+        value.Should().Be(default);
+        error.Should().Be("fail");
     }
 
     [Fact]
-    public async Task ThenAsyncWorksCorrectInOkState()
+    public void TryPickErrorOnError()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = await res.ThenAsync<bool>(async _ =>
-        {
-            await Task.Delay(1);
-            return true;
-        });
-
-        newRes.UnsafeValue.Should().Be(true);
+        var failure = Result.Err<int, string>("bad");
+        var err = failure.TryPickError(out var error, out var value);
+        err.Should().BeTrue();
+        error.Should().Be("bad");
+        value.Should().Be(default);
     }
 
     [Fact]
-    public async Task ThenAsyncWorksCorrectInErrState()
+    public void TryPickErrorOnSuccess()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var wasCalled = false;
-        var newRes = await res.ThenAsync<bool>(async _ =>
-        {
-            wasCalled = true;
-            await Task.Delay(1);
-            return true;
-        });
-
-        wasCalled.Should().Be(false);
-        newRes.UnsafeError.Message.Should().Be("Some error");
+        var success = Result.Ok<int, string>(11);
+        var err = success.TryPickError(out var error, out var value);
+        err.Should().BeFalse();
+        error.Should().BeNull();
+        value.Should().Be(11);
     }
 
     [Fact]
-    public async Task ThenAsyncWorksReturnsNewError()
+    public void ValueOrReturnsValueOrFallback()
     {
-        var res = new Result<Unit>(Unit.Default);
+        var success = Result.Ok<int, string>(12);
+        success.ValueOr(0).Should().Be(12);
 
-        var newRes = await res.ThenAsync<bool>(async _ =>
-        {
-            await Task.Delay(1);
-            return new Exception("Some new error");
-        });
-
-        newRes.UnsafeError.Message.Should().Be("Some new error");
+        var failure = Result.Err<int, string>("nope");
+        failure.ValueOr(0).Should().Be(0);
     }
 
     [Fact]
-    public async Task MapAsyncWorksCorrectInOkState()
+    public void UnsafeValueThrowsOnError()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = await res.MapAsync(async _ =>
-        {
-            await Task.Delay(1);
-            return true;
-        });
-
-        newRes.UnsafeValue.Should().Be(true);
+        var failure = Result.Err<int, string>("err");
+        Action act = () => _ = failure.UnsafeValue;
+        act.Should().Throw<InvalidResultStateException>();
     }
 
     [Fact]
-    public async Task MapAsyncWorksCorrectInErrState()
+    public void UnsafeErrorThrowsOnSuccess()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var wasCalled = false;
-        var newRes = await res.MapAsync(async _ =>
-        {
-            wasCalled = true;
-            await Task.Delay(1);
-            return true;
-        });
-
-        wasCalled.Should().Be(false);
-        newRes.UnsafeError.Message.Should().Be("Some error");
+        var success = Result.Ok<int, string>(13);
+        Action act = () => _ = success.UnsafeError;
+        act.Should().Throw<InvalidResultStateException>();
     }
 
     [Fact]
-    public async Task MapErrAsyncWorksCorrectInOkState()
+    public void ImplicitConversionFromValue()
     {
-        var res = new Result<Unit>(Unit.Default);
-
-        var newRes = await res.MapErrAsync(async _ =>
-        {
-            await Task.Delay(1);
-            return new Exception("Some new error");
-        });
-
-        newRes.UnsafeValue.Should().Be(Unit.Default);
+        Result<int, string> fromValue = 14;
+        fromValue.IsOk().Should().BeTrue();
+        fromValue.UnsafeValue.Should().Be(14);
     }
 
     [Fact]
-    public async Task MapErrAsyncWorksCorrectInErrState()
+    public void ImplicitConversionFromError()
     {
-        var res = new Result<Unit>(new Exception("Some error"));
-
-        var newRes = await res.MapErrAsync(async _ =>
-        {
-            await Task.Delay(1);
-            return new Exception("Some new error");
-        });
-
-        newRes.UnsafeError.Message.Should().Be("Some new error");
+        Result<int, string> fromError = "oops";
+        fromError.IsErr().Should().BeTrue();
+        fromError.UnsafeError.Should().Be("oops");
     }
 
     [Fact]
-    public void ChainMethodsWorksCorrect()
+    public void EqualityOperatorsBehaveCorrectly()
     {
-        var res = new Result<Unit>(Unit.Default)
-            .Map(_ => 1)
-            .Then<double>(prev =>
-            {
-                prev.Should().Be(1);
-                return prev * 2.0;
-            })
-            .Then<int>(prev =>
-            {
-                prev.Should().Be(2.0);
-                return new Exception("Some error");
-            })
-            .MapErr(prevErr =>
-            {
-                prevErr.Message.Should().Be("Some error");
-                return new Exception("Some new error");
-            })
-            .Match(
-                val => val,
-                err =>
-                {
-                    err.Message.Should().Be("Some new error");
-                    return 0;
-                }
-            );
+        var a1 = Result.Ok<int, string>(1);
+        var a2 = Result.Ok<int, string>(1);
+        a1.Should().Be(a2);
+        a1.GetHashCode().Should().Be(a2.GetHashCode());
 
-        res.Should().Be(0);
+        var e1 = Result.Err<int, string>("e");
+        var e2 = Result.Err<int, string>("e");
+        e1.Should().Be(e2);
+        e1.GetHashCode().Should().Be(e2.GetHashCode());
+
+        a1.Should().NotBe(e1);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ThenAsyncChainsOnSuccessForBothOverloads(bool useTaskOverload)
+    {
+        var success = Result.Ok<int, string>(3);
+
+        AsyncResult<string, string> asyncResult = useTaskOverload
+            // overload taking Func<T, Task<Result<K, TError>>>
+            ? success.ThenAsync(v => Task.FromResult(Result.Ok<string, string>((v * 2).ToString())))
+            // overload taking Func<T, AsyncResult<K, TError>>
+            : success.ThenAsync(v => Result.OkAsync<string, string>((v * 2).ToString()));
+
+        var final = await asyncResult;
+        final.IsOk().Should().BeTrue();
+        final.UnsafeValue.Should().Be("6");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ThenAsyncSkipsOnErrorForBothOverloads(bool useTaskOverload)
+    {
+        var failure = Result.Err<int, string>("oops");
+
+        AsyncResult<string, string> asyncResult = useTaskOverload
+            ? failure.ThenAsync(v => Task.FromResult(Result.Ok<string, string>((v * 2).ToString())))
+            : failure.ThenAsync(v => Result.OkAsync<string, string>((v * 2).ToString()));
+
+        var final = await asyncResult;
+        final.IsErr().Should().BeTrue();
+        final.UnsafeError.Should().Be("oops");
+    }
+
+    [Fact]
+    public async Task MapAsyncTransformsOnSuccess()
+    {
+        var success = Result.Ok<int, string>(4);
+        var mappedTask = success.MapAsync(v => Task.FromResult(v + 1));
+        var mapped = await mappedTask;
+        mapped.IsOk().Should().BeTrue();
+        mapped.UnsafeValue.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task MapAsyncSkipsOnError()
+    {
+        var failure = Result.Err<int, string>("fail");
+        var mappedTask = failure.MapAsync(v => Task.FromResult(v + 1));
+        var mapped = await mappedTask;
+        mapped.IsErr().Should().BeTrue();
+        mapped.UnsafeError.Should().Be("fail");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ThenErrAsyncHandlesError(bool useTaskOverload)
+    {
+        var failure = Result.Err<int, string>("error");
+
+        AsyncResult<int, string> asyncResult = useTaskOverload
+            // overload taking Func<TError, Task<Result<T, TError>>>
+            ? failure.ThenErrAsync(err => Task.FromResult(Result.Ok<int, string>(-1)))
+            // overload taking Func<TError, AsyncResult<T, TError>>
+            : failure.ThenErrAsync(err => Result.OkAsync<int, string>(-1));
+
+        var final = await asyncResult;
+        final.IsOk().Should().BeTrue();
+        final.UnsafeValue.Should().Be(-1);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ThenErrAsyncSkipsOnSuccess(bool useTaskOverload)
+    {
+        var success = Result.Ok<int, string>(5);
+
+        AsyncResult<int, string> asyncResult = useTaskOverload
+            ? success.ThenErrAsync(_ => Task.FromResult(Result.Err<int, string>("ignored")))
+            : success.ThenErrAsync(_ => Result.ErrAsync<int, string>("ignored"));
+
+        var final = await asyncResult;
+        final.IsOk().Should().BeTrue();
+        final.UnsafeValue.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task MapErrAsyncTransformsError()
+    {
+        var failure = Result.Err<int, string>("failure");
+        var mapped = await failure.MapErrAsync(err => Task.FromResult(err.Length));
+        mapped.IsErr().Should().BeTrue();
+        mapped.UnsafeError.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task MapErrAsyncSkipsOnSuccess()
+    {
+        var success = Result.Ok<int, string>(10);
+        var mapped = await success.MapErrAsync(err => Task.FromResult(err.Length));
+        mapped.IsOk().Should().BeTrue();
+        mapped.UnsafeValue.Should().Be(10);
     }
 }
